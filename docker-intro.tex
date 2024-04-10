@@ -1,0 +1,179 @@
+\PassOptionsToPackage{unicode}{hyperref}
+\documentclass[aspectratio=1610]{beamer}
+
+\usetheme[dark]{tudo}
+
+\usepackage[english]{babel}
+\usepackage[autostyle]{csquotes}
+
+\usepackage{mathtools}
+
+\usepackage{xcolor}
+
+\usepackage[outputdir=build]{minted}
+\usepackage{tcolorbox}
+\tcbuselibrary{minted}
+\tcbuselibrary{skins}
+\tcbuselibrary{xparse}
+
+\usepackage{graphicx}
+
+\usepackage{hyperref}
+\usepackage{bookmark}
+
+\unimathsetup{
+  math-style=ISO,
+  bold-style=ISO,
+  nabla=upright,
+  partial=upright,
+}
+\setmathfont{Fira Math}
+\setmathfont{XITS Math}[range={cal, bfcal}]
+\newfontfamily{\emoji}{Noto Color Emoji}[Renderer=Harfbuzz]
+
+\input{codeboxes.tex}
+
+
+\title{A short Introduction to Docker / Containers}%
+
+\author[M. Linhoff]{Maximilian Linhoff}
+\date[2024-04-03]{APP Group Seminar 2024-04-03}
+\institute[{%
+  \includegraphics[height=\headerheight]{./applogo.pdf}%
+}]{Astroparticle Physics | TU Dortmund University}
+\titlegraphic{{\includegraphics[height=0.25\textheight]{./build/docker-logo.pdf}}}
+
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{What are Containers?}
+\begin{frame}{What are Containers?}
+  \begin{itemize}
+    \item Containers are a more lightweight solution to get isolated, reproducible environments for software compared to full Virtual Machines
+    \item Using different Linux features to isolate:
+      \begin{itemize}
+        \item Files
+        \item Resources (CPU, Memory, Disk space, ...)
+        \item Network
+      \end{itemize}
+    \item On Windows and MacOS, a Linux VM will be used to run the Linux containers inside
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Usecases}
+  \begin{itemize}
+    \item Getting an isolated, reproducible software environment that might be different from the host system
+      \begin{itemize}
+        \item Running legacy software on a current OS
+        \item Running current software on a legacy OS (if its new enough to run docker...)
+        \item Saving a software environment for reproducibility
+      \end{itemize}
+    \item Easily setup services like databases, webservers, etc.
+    \item Create isolated setups of services, like a GitLab that needs a webserver, a database, a CI runner, ...
+    \item ...
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Docker}
+  \begin{itemize}
+    \item Docker is one implementation of such a container system
+    \item But container formats and tooling is now mostly standardized: Open Container Initative (OCI)
+    \item Basic parts of Docker are open source, but e.g. Docker Desktop is not
+    \item Alternatives: podman, Singularity / Apptainer, ...
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Some Terminology}
+  \begin{description}
+    \item[Image] A read-only template for creating a new Container. \\
+      Identified by a registry, namespace, name and version tag \\
+      E.g.: \texttt{docker.io/library/ubuntu:22.04}, the offical docker image for Ubuntu 22.04 \\
+      Can be shorted to \texttt{ubuntu:22.04} or even \texttt{ubuntu} \\ $⇒$ defaults for registry (docker.io), namespace (library) and tag (latest)
+    \item[Container] An \emph{Instance} of an image. Isolated from the rest of the system. \\
+      Can have resource constraints, networking, volumes etc. configured.
+    \item[Registry] A server hosting docker images
+  \end{description}
+\end{frame}
+
+\begin{frame}{Security}
+  \begin{itemize}
+    \item Being able to start and run docker containers has security implications
+    \item You can essentially become root through starting a docker container and mounting directories of the host
+    \item[$⇒$] Many environments don't allow starting docker containers for normal users (Clusters, CI, ...) \\
+      Apptainer is a tool that works a bit differently, doesn't have this issue and can run docker containers
+  \end{itemize}
+\end{frame}
+
+\section{Using Docker}
+\begin{frame}[fragile]{Starting your first container}
+  \begin{codenumbered}{text}
+    $ docker run --rm -it ubuntu:22.04 bash
+  \end{codenumbered}
+
+  \begin{description}
+    \item[\texttt{--rm}] Remove container after logging out 
+    \item[\texttt{-it}] open an interactive tty shell
+  \end{description}
+\end{frame}
+
+\begin{frame}[fragile]{Volumes}
+  \begin{itemize}
+    \item Bind-mounting paths from the host into the container:
+      \begin{codenumbered}{text}
+        $ docker run --rm \
+          -v /path/on/host:/path/in/container \
+          ubuntu:22.04 \
+          ls /path/in/container
+      \end{codenumbered}
+    \item Using a docker volume, data is stored somewhere in docker's internal area on the host:
+      \begin{codenumbered}{text}
+        $ docker volume create foo
+        $ docker run --rm -v
+          -v foo:/path/in/container \
+          ubuntu:22.04 \
+          ls /path/in/container
+      \end{codenumbered}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Ports, running stuff in the background}
+      \begin{codenumbered}{text}
+        $ docker run -d \
+          -p 5432:5432 \
+          -e POSTGRES_USER=foo \
+          -e POSTGRES_PASSWORD=top-secret \
+          postgres
+      \end{codenumbered}
+
+      \begin{description}
+        \item[-d] Run in the background
+        \item[-p host:container] Map a port from host to container 
+        \item[-e key=value] Set environment variables inside the container 
+      \end{description}
+\end{frame}
+
+\begin{frame}[fragile]{Creating your own images: Dockerfile}
+  Docker images are described in text recipes to \emph{built} an image:
+  \codeinputnumbered[title={\texttt{examples/simple/Dockerfile}}]{docker}{./examples/simple/Dockerfile}
+\end{frame}
+
+\begin{frame}[fragile]{Creating your own images: Dockerfile}
+  \begin{code}{text}
+    $ cd examples/simple
+    $ docker build -t example-simple .
+    ... lots of output
+    $ docker run --rm example-simple
+    Hello, Docker!
+  \end{code}
+\end{frame}
+
+\section{Docker Compose}
+\begin{frame}{What if you have multiple things that need to work together?}
+\end{frame}
+\section{Docker and Security}
+\section{Singularity / Apptainer}
+
+\end{document}

@@ -1,0 +1,95 @@
+% Codeboxes and input listings
+\definecolor{solarizedbg}{HTML}{002B36}
+\renewcommand\theFancyVerbLine{%
+  \footnotesize%
+  \textcolor{lightgray}{\arabic{FancyVerbLine}}%
+}
+\usemintedstyle{solarized-dark}
+
+\tcbset{basebox/.style={
+  listing engine=minted,
+  colupper=white,
+  colback=solarizedbg,
+  colframe=solarizedbg!90!white,
+  top=0pt,
+  bottom=0pt,
+  left=0pt,
+  right=0pt,
+  enhanced,
+}}
+
+\tcbset{codeboxnumbered/.style={
+  basebox,
+  listing only,
+  left=1em,
+  overlay={%
+    \begin{tcbclipinterior}
+      \fill[solarizedbg!80!white] (frame.south west) rectangle ([xshift=1.3em]frame.north west);
+    \end{tcbclipinterior}
+  },
+}}
+
+
+% Usage: \begin{code}[<tcolorbox options>]<minted options> {<language>} \end{code}
+\DeclareTCBListing{codenumbered} {O{} D<>{} m} {
+  codeboxnumbered,
+  minted language=#3,
+  minted options={
+    breaklines,
+    autogobble,
+    linenos,
+    numbersep=0.3em,
+    stripnl=true,
+    #2,
+  },
+  #1
+}
+
+% \codeinputnumbered[<tcolorbox options>]<minted options> {<language>} {path}
+\DeclareTCBInputListing{\codeinputnumbered} {O{} D<>{} m m} {
+  codeboxnumbered,
+  listing file={#4},
+  minted language=#3,
+  minted options={
+    breaklines,
+    autogobble,
+    linenos,
+    numbersep=0.3em,
+    stripnl=true,
+    #2,
+  },
+  #1
+}
+
+\tcbset{codebox/.style={
+  basebox,
+  listing only,
+}}
+
+
+% Usage: \begin{code}[<tcolorbox options>]<minted options> {<language>} \end{code}
+\DeclareTCBListing{code} {O{} D<>{} m} {
+  codebox,
+  minted language=#3,
+  minted options={
+    breaklines,
+    autogobble,
+    stripnl=true,
+    #2,
+  },
+  #1
+}
+
+% \codeinput[<tcolorbox options>]<minted options> {<language>} {path}
+\DeclareTCBInputListing{\codeinput} {O{} D<>{} m m} {
+  codebox,
+  listing file={#4},
+  minted language=#3,
+  minted options={
+    breaklines,
+    autogobble,
+    stripnl=true,
+    #2,
+  },
+  #1
+}

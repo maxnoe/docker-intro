@@ -1,8 +1,11 @@
 % Codeboxes and input listings
 \definecolor{solarizedbg}{HTML}{002B36}
+\newcommand\emptyaccsupp[1]{\BeginAccSupp{ActualText={}}#1\EndAccSupp{}}
 \renewcommand\theFancyVerbLine{%
-  \footnotesize%
-  \textcolor{lightgray}{\arabic{FancyVerbLine}}%
+  \emptyaccsupp{%
+    \footnotesize%
+    \textcolor{lightgray}{\arabic{FancyVerbLine}}%
+  }%
 }
 \usemintedstyle{solarized-dark}
 

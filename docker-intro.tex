@@ -16,8 +16,11 @@
 \tcbuselibrary{skins}
 \tcbuselibrary{xparse}
 
+\usepackage{tabularray}
+
 \usepackage{graphicx}
 
+\usepackage{accsupp}
 \usepackage{hyperref}
 \usepackage{bookmark}
 
@@ -109,9 +112,9 @@
 
 \section{Using Docker}
 \begin{frame}[fragile]{Starting your first container}
-  \begin{codenumbered}{text}
+  \begin{code}{text}
     $ docker run --rm -it ubuntu:22.04 bash
-  \end{codenumbered}
+  \end{code}
 
   \begin{description}
     \item[\texttt{--rm}] Remove container after logging out 
@@ -119,40 +122,94 @@
   \end{description}
 \end{frame}
 
-\begin{frame}[fragile]{Volumes}
-  \begin{itemize}
-    \item Bind-mounting paths from the host into the container:
-      \begin{codenumbered}{text}
-        $ docker run --rm \
-          -v /path/on/host:/path/in/container \
-          ubuntu:22.04 \
-          ls /path/in/container
-      \end{codenumbered}
-    \item Using a docker volume, data is stored somewhere in docker's internal area on the host:
-      \begin{codenumbered}{text}
-        $ docker volume create foo
-        $ docker run --rm -v
-          -v foo:/path/in/container \
-          ubuntu:22.04 \
-          ls /path/in/container
-      \end{codenumbered}
-  \end{itemize}
-\end{frame}
-
 \begin{frame}[fragile]{Ports, running stuff in the background}
-      \begin{codenumbered}{text}
+      \begin{code}{text}
         $ docker run -d \
           -p 5432:5432 \
           -e POSTGRES_USER=foo \
           -e POSTGRES_PASSWORD=top-secret \
+          --name awesome-db \
           postgres
-      \end{codenumbered}
+      \end{code}
 
       \begin{description}
         \item[-d] Run in the background
         \item[-p host:container] Map a port from host to container 
         \item[-e key=value] Set environment variables inside the container 
       \end{description}
+\end{frame}
+
+\begin{frame}[fragile]{See what is currently running}
+
+  {\tiny
+  \begin{code}{text}
+    $ docker ps
+    CONTAINER ID IMAGE    COMMAND                 CREATED        STATUS       PORTS                                     NAMES
+    71c4cb81a3ff postgres "docker-entrypoint.s…"  2 seconds ago  Up 1 second  0.0.0.0:5432->5432/tcp, :::5432->5432/tcp awesome-db
+  \end{code}
+  }
+
+  \bigskip
+  Containers can be stopped, restarted, deleted
+  {\tiny
+  \begin{code}{text}
+    $ docker stop awesome-db
+    $ docker ps
+    $ docker ps -a
+    CONTAINER ID IMAGE    COMMAND                 CREATED            STATUS                    NAMES
+    71c4cb81a3ff postgres "docker-entrypoint.s…"  About a minute ago Exited (0) 2 seconds ago  awesome-db
+    $ docker start awesome-db
+    $ docker stop awesome-db
+    $ docker rm awesome-db
+  \end{code}
+  }
+\end{frame}
+
+\begin{frame}[fragile]{Volumes}
+  \begin{itemize}
+    \item Containers need access to persistent storage
+    \item Database content should not be lost when a container is removed\\
+      this happens e.\,g.\ when updating a service to a new version of the image
+    \item To persist data, you need to know the path inside the container where the
+      important data is stored, some examples:
+      \begin{description}
+        \item[MySQL] \mintinline{text}+/var/lib/mysql+
+        \item[PostgreSQL] \mintinline{text}+/var/lib/postgresql/data+
+        \item[Nextcloud] \mintinline{text}+/var/www/html/data+
+      \end{description}
+    \item docs: \url{https://docs.docker.com/storage/volumes/}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Bind-mounting Volumes}
+  \begin{itemize}
+    \item Bind-mounting paths from the host into the container:
+      \begin{code}{text}
+        $ docker run --rm \
+          -v /path/on/host:/path/in/container \
+          ubuntu:22.04 \
+          ls /path/in/container
+      \end{code}
+    \item Can be used to persist data from the container to the host
+    \item But also to access data from the host, more relevant for e.\,g.\ analysis software in docker containers
+    \item You can pass options, e.\,g.\ making the mount read-only: \mintinline{text}+-v /path/on/host:/path/in/container:ro+
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Docker volumes Volumes}
+  \begin{itemize}
+    \item Using a docker volume, data is stored somewhere in docker's internal area on the host:
+      \begin{code}{text}
+        $ docker volume create awesome-db-data
+        $ docker run -d \
+          -p 5432:5432 \
+          -e POSTGRES_USER=foo \
+          -e POSTGRES_PASSWORD=top-secret \
+          -v awesome-db-data:/var/lib/postgresql/data \
+          --name awesome-db \
+          postgres
+      \end{code}
+  \end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]{Creating your own images: Dockerfile}
@@ -170,10 +227,121 @@
   \end{code}
 \end{frame}
 
+\begin{frame}[fragile]{Creating your own images: Dockerfile}
+  \begin{itemize}
+    \item Docker images are made up of immutable layers
+    \item Each command in the Dockerfile will create a new layer
+    \item Files created in one layer and deleted in the next will still increase the image size
+    \item Avoid creating temporary files that persist in a layer, some examples:
+      \begin{itemize}
+        \item pip: \mintinline{text}+pip install --no-cache numpy+
+        \item apt packages
+          \begin{code}{text}
+            apt-get update \
+            && apt-get install -y git \
+            && rm -rf /var/lib/apt/lists/* 
+          \end{code}
+        \item for more see: \href{https://docs.docker.com/develop/develop-images/dockerfile_best-practices/}{Dockerfile best practices}
+      \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Creating your own images: Dockerfile}{}
+
+  {\small
+  \begin{code}[title={Good!}]{docker}
+    RUN curl -L https://root.cern/download/root_v6.30.06.source.tar.gz | tar xz \
+      && cmake -S root-6.30.06 -B root-build [...] \
+      && [...] \
+      && rm -rf root-build root-6.30.06
+  \end{code}
+  }
+
+  {\small
+    \begin{code}[title={Very bad, will result in large image size!}]{docker}
+      RUN curl -LO https://root.cern/download/root_v6.30.06.source.tar.gz
+      RUN tar xzf root_v6.30.06.source.tar.gz
+      WORKDIR /opt/root-6.30.06 
+      RUN cmake -S root-6.30.06 -B root-build [...]
+      RUN [...]
+      RUN rm -r /opt/root-6.30.06
+      RUN rm /root_v6.30.06.sources.tar.gz
+    \end{code}
+  }
+\end{frame}
+
+\begin{frame}{Some useful commands}
+  \begin{tblr}{
+      colspec = {l X},
+      column{1} = {font=\ttfamily},
+    }
+    docker ps           & List running containers \\
+    docker ps -a        & List all, also stopped containers \\
+    docker exec -it <container> <bash> &  Run a command in a running container \\
+    docker images       & List images \\
+    docker image prune  & Removes \emph{dangling} images. Can free lots of space. \\
+    docker system prune & Removes everything not currently in use \newline (containers, images, volumes, ...). \\
+  \end{tblr}
+\end{frame}
+
 \section{Docker Compose}
 \begin{frame}{What if you have multiple things that need to work together?}
+  Docker compose allows describing multiple containers in yaml file
+  \begin{itemize}
+    \item Basically all features of the docker command line supported
+    \item Resources
+    \item Volumes
+    \item Networks
+    \item Ports
+    \item ...
+  \end{itemize}
 \end{frame}
-\section{Docker and Security}
-\section{Singularity / Apptainer}
+
+\begin{frame}{Basic docker compose example: Wiki.js}
+  \footnotesize%
+  \only<2>{
+    \codeinputnumbered[title={./examples/compose/docker-compose.yaml}]<firstline=1, lastline=12>{yaml}{./examples/compose/docker-compose.yaml}
+  }%
+  \only<3>{
+    \codeinputnumbered[title={./examples/compose/docker-compose.yaml}]<firstline=14, lastline=28>{yaml}{./examples/compose/docker-compose.yaml}
+  }%
+  \only<4>{
+    \codeinputnumbered[title={./examples/compose/docker-compose.yaml}]<firstline=30, lastline=34>{yaml}{./examples/compose/docker-compose.yaml}
+  }%
+\end{frame}
+
+\begin{frame}{}
+\end{frame}
+
+\section{Apptainer / Singularity}
+\begin{frame}[fragile]{Apptainer / Singularity}
+  \begin{itemize}
+    \item Apptainer (formerly Singularity) is a container engine that solves some of the security issues around docker in shared environments
+    \item Main feature: containers are run in user namespaces, not by a root-owned service
+    \item By default: access to current pwd and home
+    \item Uses different, custom container format: SIF
+    \item But can automatically convert docker images to SIF, e.g.:
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Apptainer / Singularity}
+  \footnotesize
+  \begin{code}{text}
+    $ id
+    uid=5074(mnoethe) gid=5002(app) groups=5002(app),120(lpadmin),998(docker),5000(e5),5012(app_admin), 5014(cta),5015(magic),5017(fact),10024(lidong-uph),11000(exp),11200(hep)
+    $ pwd
+    /home/mnoethe/Uni/e5b/apptainer-demo
+    $ head -n1 /etc/os-release
+    PRETTY_NAME="Ubuntu 22.04.4 LTS"
+
+    $ apptainer run docker://almalinux:9
+    Apptainer> id
+    uid=5074(mnoethe) gid=5002(app) groups=5002(app),65534(nobody)
+    Apptainer> pwd
+    /home/mnoethe/Uni/e5b/apptainer-demo
+    Apptainer> head -n1 /etc/os-release 
+    NAME="AlmaLinux"
+  \end{code}
+\end{frame}
 
 \end{document}

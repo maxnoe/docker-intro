@@ -1,0 +1,34 @@
+services:
+
+  wiki-db:
+    image: postgres:16
+    volumes:
+      - wiki-db-data:/var/lib/postgresql-data
+    environment:
+      POSTGRES_USER: wiki
+      POSTGRES_PASSWORD: top-secret
+      POSTGRES_DB: wiki
+    networks:
+      - wiki-network
+
+  wiki:
+    image: requarks/wiki:2.5
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: wiki-db
+      DB_PORT: 5432
+      DB_USER: wiki
+      DB_PASS: top-secret
+      DB_NAME: wiki
+    ports:
+      - 8080:3000
+    depends_on:
+      - wiki-db
+    networks:
+      - wiki-network
+
+networks:
+  wiki-network:
+
+volumes:
+  wiki-db-data:

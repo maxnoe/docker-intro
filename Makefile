@@ -15,7 +15,7 @@ preview: FORCE
 		docker-intro.tex
 
 
-build/docker-logo.pdf: build
+build/docker-logo.pdf: | build
 	curl -fsSL -o build/docker-logos.zip https://www.docker.com/static/Docker-Logos.zip
 	unzip -u build/docker-logos.zip docker-logos/SVG/docker-logo-blue.svg -d build
 	inkscape build/docker-logos/SVG/docker-logo-blue.svg -o $@
